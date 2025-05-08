@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Review Location</title>
+    <style>
+        body {
+            font-family: 'Montserrat', sans-serif;
+            margin: 0;
+            padding: 0;
+        }
+        .container {
+            max-width: 70%;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        img {
+            width: 70%;
+            text-align: center;
+        }
+        h1 {
+            text-align: center;
+        }
+        h2 {
+            text-align: start;
+        }
+        .image-gallery {
+            flex-direction: column;
+            margin-top: 20px;
+        }
+        .image-gallery img {
+            margin-bottom: 20px;
+        }
+        .template-post {
+            flex: 1;
+            margin-bottom: 20px;
+        }
+        .image-view {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            font-style: italic;
+            color: gray;
+        }
+        .text-italic {
+            font-style: italic;
+        }
+        .template-post-image {
+            margin-top: 10px;
+        }
+    </style>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;700&display=swap">
+</head>
+<body>
+<div class="container">
+    <h1 id="main-place">Review Location</h1>
+
+    <!-- Main Title -->
+    <h2 id="main-title"></h2>
+
+    <!-- Description -->
+    <p id="main-description" class="text-italic"></p>
+
+    <!-- Image Gallery -->
+    <div class="image-gallery" id="image-gallery">
+        <!-- Images will be inserted here dynamically -->
+    </div>
+
+    <!-- Intro Paragraph -->
+    <p id="intro-paragraph"></p>
+
+    <!-- Template Posts -->
+    <div class="image-gallery" id="posts">
+        <!-- Posts will be inserted here dynamically -->
+    </div>
+
+    <!-- Conclusion -->
+    <p id="conclusion"></p>
+</div>
+<script>
+    fetch("URL_TO_YOUR_JSON_FILE")
+        .then(response => response.json())
+        .then(data => {
+            console.log(data);
+            document.getElementById('main-title').innerText = data.title;
+            document.getElementById('main-description').innerText = data.description;
+            document.getElementById('intro-paragraph').innerText = data.subDescription;
+            document.getElementById('conclusion').innerText = data.conclude;
+
+
+            const imageGallery = document.getElementById('image-gallery');
+            data.listImage.forEach(imageUrl => {
+                const imgElement = document.createElement('div');
+                imgElement.className = 'image-view';
+                imgElement.innerHTML = `
+                    <img src="${imageUrl}" alt="Image"/>
+                    <span>${imageUrl.split('/').pop()}</span>
+                `;
+                imageGallery.appendChild(imgElement);
+            });
+
+            const postsContainer = document.getElementById('posts');
+            data.list.forEach(post => {
+                const postElement = document.createElement('div');
+                postElement.className = 'template-post';
+                postElement.innerHTML = `
+                <div class="template-post-image">
+                    <h2>${post.question}</h2>
+                    <p>${post.description}</p>
+                </div>
+                `;
+                postsContainer.appendChild(postElement);
+            });
+        })
+        .catch(error => console.error('Error loading data:', error));
+</script>
+</body>
+</html>

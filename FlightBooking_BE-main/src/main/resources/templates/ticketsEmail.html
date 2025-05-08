@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Your Flight Ticket Details</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background: #fff;
+            font-family: Arial, sans-serif;
+        }
+        .container {
+            width: 600px;
+            margin: 0 auto;
+            background: #FFB300;
+            border-radius: 3px;
+            box-shadow: 0 0 100px #aaa;
+            border-top: 1px solid #E89F3D;
+            border-bottom: 1px solid #E89F3D;
+        }
+        .header, .footer {
+            text-align: center;
+            padding: 10px;
+        }
+        .content {
+            background: #eee;
+            padding: 10px;
+        }
+        .info {
+            background: #e5e5e5;
+            padding: 10px;
+            height: 150px;
+        }
+        .spacer {
+            height: 30px;
+            width: 90px;
+            margin: 10px auto;
+            background: #222;
+            box-shadow: inset 0 1px 0 #FFB300, inset -2px 0 0 #FFB300, inset -4px 0 0 #222, inset -5px 0 0 #FFB300, inset -6px 0 0 #222;
+        }
+    </style>
+</head>
+<body>
+<h2>Your Flight Ticket Details</h2>
+<p>Hello,</p>
+<p>Thank you for booking with us. Here are your flight ticket details:</p>
+<div class="container">
+    <div class="header">
+        <table width="100%" cellpadding="0" cellspacing="0">
+            <tr>
+                <td style="text-align: left; font-size: 20px; font-weight: bold; color: rgba(0,0,102,1);" th:text="${airline}"></td>
+                <td style="text-align: right; font-size: 18px; color: rgba(255,255,255,0.6);">Boarding pass</td>
+            </tr>
+        </table>
+    </div>
+    <div class="content">
+        <table width="100%" cellpadding="0" cellspacing="0">
+            <tr style="">
+                <td style="font-size: 30px; color: #222; text-align: right;"  th:text="${departure}"></td>
+                <td style="text-align: center;">
+                    <img src="https://firebasestorage.googleapis.com/v0/b/shoppingapp-a20a4.appspot.com/o/test%2Fairplane-takeoff-fill%20(1).png?alt=media&token=4fcfdcec-5147-40f9-8f57-708bfe576dc8" alt="Plane" style="height: 50px; width: 50px;">
+                </td>
+                <td style="font-size: 30px; color: #222; " th:text="${arrival}"></td>
+            </tr>
+            <tr style="">
+                <td style="font-size: 18px; color: #222; text-align: right;" th:text="${departureTime}"></td>
+                <td style=""></td>
+                <td style="font-size: 18px; color: #222;" th:text="${arrivalTime}"></td>
+            </tr>
+            <tr style="">
+                <td style="font-size: 14px; color: #999; text-align: center;" th:text="${departureCity}"></td>
+                <td></td>
+                <td style="font-size: 14px; color: #999; text-align: center;" th:text="${arrivalCity}"></td>
+            </tr>
+        </table>
+    </div>
+    <div class="info">
+        <table width="100%" cellpadding="10" cellspacing="0">
+            <tr>
+                <td style="font-size: 14px; color: #999;">PASSENGER NAME<br><span style="color: #555; font-size: 17px;" th:text="${passengerName}"></span></td>
+                <td style="font-size: 14px; color: #999;">FLIGHT N&deg;<br><span style="color: #555; font-size: 17px;" th:text="${flightNumber}"></span></td>
+                <td style="font-size: 14px; color: #999;">GATE<br><span style="color: #555; font-size: 17px;" th:text="${gate}"></span></td>
+            </tr>
+            <tr>
+                <td style="font-size: 14px; color: #999;">SEAT<br><span style="color: #555; font-size: 17px;" th:text="${seat}"></span></td>
+                <td style="font-size: 14px; color: #999;">BOARDING TIME<br><span style="color: #555; font-size: 17px;" th:text="${boardingTime}"></span></td>
+                <td></td>
+            </tr>
+        </table>
+    </div>
+    <div class="spacer"></div>
+</div>
+<hr style="border: none; border-top: 1px solid #eee;">
+<div style="text-align: center; color: #999; font-size: 12px;">
+    <p>If you have any questions, feel free to contact us.</p>
+    <p>&copy; 2024 Your Company. All rights reserved.</p>
+</div>
+</body>
+</html>
