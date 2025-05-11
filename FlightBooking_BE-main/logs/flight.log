@@ -1,0 +1,130 @@
+2025-05-11 18:05:18.402 [http-nio-7050-exec-10] INFO  flight-logger - 
+========== FLIGHT EVENT ==========
+Time: 2025-05-11 18:05:18
+API: /api/flights/create
+Admin/User ID: SYSTEM
+Event Type: CREATE
+Flight Info: {
+  businessPrice: 120.0
+  planeId: 6
+  flightId: 30
+  arrivalAirportId: 2
+  firstClassPrice: 180.0
+  departureDate: 2025-05-27 00:00:00.0
+  economyPrice: 50.0
+  departureAirportId: 1
+  arrivalDate: 2025-05-27 01:01:01.0
+}
+Message: Flight created successfully
+================================
+
+2025-05-11 18:05:18.561 [http-nio-7050-exec-10] INFO  flight-logger - 
+========== FLIGHT EVENT ==========
+Time: 2025-05-11 18:05:18
+API: /flight/create-new-flight
+Admin/User ID: ADMIN
+Event Type: CREATE
+Flight Info: {
+  flightId: 30
+  arrivalAirportId: 2
+  departureDate: 2025-05-27 00:00:00.0
+  departureAirportId: 1
+  arrivalDate: 2025-05-27 01:01:01.0
+}
+Message: Flight created successfully via API
+================================
+
+2025-05-11 18:05:38.619 [http-nio-7050-exec-5] ERROR flight-logger - 
+========== FLIGHT OPERATION FAILURE ==========
+Time: 2025-05-11 18:05:38
+API: /api/flights/create
+Admin/User ID: SYSTEM
+Flight Info: {
+  planeId: 6
+  arrivalAirportId: 2
+  departureDate: 2025-05-27 00:00:00.0
+  departureAirportId: 1
+  arrivalDate: 2025-05-27 01:01:01.0
+}
+Error: Failed to create flight: Flight time conflicts with existing flight(s): [30]
+==========================================
+
+2025-05-11 18:05:38.704 [http-nio-7050-exec-5] ERROR flight-logger - 
+========== FLIGHT OPERATION FAILURE ==========
+Time: 2025-05-11 18:05:38
+API: /flight/create-new-flight
+Admin/User ID: ADMIN
+Flight Info: {
+  arrivalAirportId: 2
+  departureDate: 2025-05-27 00:00:00.0
+  departureAirportId: 1
+  arrivalDate: 2025-05-27 01:01:01.0
+}
+Error: Bad request: Flight time conflicts with existing flight(s): [30]
+==========================================
+
+2025-05-11 18:09:33.282 [http-nio-7050-exec-7] INFO  flight-logger - 
+========== FLIGHT EVENT ==========
+Time: 2025-05-11 18:09:33
+API: /api/flights/cancel
+Admin/User ID: SYSTEM
+Event Type: CANCEL
+Flight Info: {
+  departureTime: 2025-05-09 00:00:00.0
+  reason: ok
+  originalStatus: DELAYED
+  affectedBookings: 3
+  arrivalTime: 2025-05-10 00:00:00.0
+  flightId: 28
+}
+Message: Flight canceled: ok
+================================
+
+2025-05-11 18:09:33.672 [http-nio-7050-exec-7] INFO  flight-logger - 
+========== FLIGHT EVENT ==========
+Time: 2025-05-11 18:09:33
+API: /flight/cancel
+Admin/User ID: ADMIN
+Event Type: API_CALL
+Flight Info: {
+  reason: ok
+  apiEndpoint: /flight/cancel
+  flightId: 28
+}
+Message: Flight cancellation API called successfully
+================================
+
+2025-05-11 18:09:53.397 [http-nio-7050-exec-4] INFO  flight-logger - 
+========== FLIGHT EVENT ==========
+Time: 2025-05-11 18:09:53
+API: /api/flights/delay
+Admin/User ID: SYSTEM
+Event Type: DELAY
+Flight Info: {
+  reason: mua 
+  affectedBookings: 0
+  originalDepartureTime: 2024-07-09 13:00:00.0
+  newDepartureTime: 2025-05-13 00:00:00.0
+  flightId: 21
+  originalArrivalTime: 2024-07-09 15:00:00.0
+  newArrivalTime: 2025-05-13 04:03:02.0
+}
+Message: Flight delayed: mua 
+================================
+
+2025-05-11 18:09:53.701 [http-nio-7050-exec-4] INFO  flight-logger - 
+========== FLIGHT EVENT ==========
+Time: 2025-05-11 18:09:53
+API: /flight/delay
+Admin/User ID: ADMIN
+Event Type: API_CALL
+Flight Info: {
+  reason: mua 
+  apiEndpoint: /flight/delay
+  newDepartureTime: 2025-05-13 00:00:00.0
+  flightId: 21
+  newArrivalTime: 2025-05-13 04:03:02.0
+}
+Message: Flight delay API called successfully
+================================
+

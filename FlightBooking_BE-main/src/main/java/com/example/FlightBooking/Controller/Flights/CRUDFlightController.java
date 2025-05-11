@@ -9,6 +9,7 @@ import com.example.FlightBooking.Repositories.PlaneRepository;
 import com.example.FlightBooking.Repositories.PopularPlaceRepository;
 import com.example.FlightBooking.Services.CloudinaryService.CloudinaryService;
 import com.example.FlightBooking.Services.FlightService.FlightService;
+import com.example.FlightBooking.Services.LoggingService.FlightLogService;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.mail.MessagingException;
@@ -23,6 +24,7 @@ import org.springframework.web.multipart.MultipartFile;
 import java.io.IOException;
 import java.sql.Timestamp;
 import java.time.LocalTime;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -46,24 +48,60 @@ public class CRUDFlightController {
     private PlaneRepository planeRepository;
     @Autowired
     private PopularPlaceRepository popularPlaceRepository;
-//    @PostMapping(value = "/upload", consumes = { MediaType.MULTIPART_FORM_DATA_VALUE})
-//    public ResponseEntity<String> uploadFlightData(@RequestPart("file") MultipartFile file, @RequestBody Long planeId) {
-//        try {
-//            flightService.uploadFlightData(file, planeId);
-//            return new ResponseEntity<>("File uploaded successfully!", HttpStatus.OK);
-//        } catch (IOException e) {
-//            return new ResponseEntity<>("Failed to upload file", HttpStatus.INTERNAL_SERVER_ERROR);
-//        }
-//    }
+    @Autowired
+    private FlightLogService flightLogService;
 
     @PostMapping("/create-new-flight")
     public ResponseEntity<?> createFlight(@Valid @RequestBody FlightDTORequest flightDTORequest) throws JsonProcessingException {
         try {
             Flights flight = flightService.createFlight(flightDTORequest);
+            
+            // Log successful flight creation at controller level
+            Map<String, Object> flightInfo = new HashMap<>();
+            flightInfo.put("flightId", flight.getId());
+            flightInfo.put("departureAirportId", flight.getDepartureAirportId());
+            flightInfo.put("arrivalAirportId", flight.getArrivalAirportId());
+            flightInfo.put("departureDate", flight.getDepartureDate());
+            flightInfo.put("arrivalDate", flight.getArrivalDate());
+            
+            flightLogService.logFlightEvent(
+                "/flight/create-new-flight",
+                "ADMIN", // Will be replaced with actual admin ID when authentication is integrated
+                flightInfo,
+                "CREATE",
+                "Flight created successfully via API"
+            );
+            
             return ResponseEntity.ok(flight);
         } catch (IllegalArgumentException e) {
+            // Log failed flight creation
+            Map<String, Object> flightInfo = new HashMap<>();
+            flightInfo.put("departureAirportId", flightDTORequest.getDepartureAirportId());
+            flightInfo.put("arrivalAirportId", flightDTORequest.getArrivalAirportId());
+            flightInfo.put("departureDate", flightDTORequest.getDepartureDate());
+            flightInfo.put("arrivalDate", flightDTORequest.getArrivalDate());
+            
+            flightLogService.logFlightFailure(
+                "/flight/create-new-flight",
+                "ADMIN", // Will be replaced with actual admin ID when authentication is integrated
+                flightInfo,
+                "Bad request: " + e.getMessage()
+            );
+            
             return ResponseEntity.badRequest().body(e.getMessage());
         } catch (Exception e) {
+            // Log failed flight creation
+            Map<String, Object> flightInfo = new HashMap<>();
+            flightInfo.put("departureAirportId", flightDTORequest.getDepartureAirportId());
+            flightInfo.put("arrivalAirportId", flightDTORequest.getArrivalAirportId());
+            
+            flightLogService.logFlightFailure(
+                "/flight/create-new-flight",
+                "ADMIN", // Will be replaced with actual admin ID when authentication is integrated
+                flightInfo,
+                "Internal server error: " + e.getMessage()
+            );
+            
             return new ResponseEntity<>("Failed to create flight", HttpStatus.INTERNAL_SERVER_ERROR);
         }
     }
@@ -125,14 +163,73 @@ public class CRUDFlightController {
             @RequestParam Timestamp newArrivalTime) {
         try {
             Flights flight = flightService.delayFlight(flightId, reason, newDepartureTime, newArrivalTime);
+            
+            // Additional controller-level logging for API tracking
+            Map<String, Object> flightInfo = new HashMap<>();
+            flightInfo.put("flightId", flightId);
+            flightInfo.put("reason", reason);
+            flightInfo.put("newDepartureTime", newDepartureTime);
+            flightInfo.put("newArrivalTime", newArrivalTime);
+            flightInfo.put("apiEndpoint", "/flight/delay");
+            
+            flightLogService.logFlightEvent(
+                "/flight/delay",
+                "ADMIN", // Will be replaced with actual admin ID when authentication is integrated
+                flightInfo,
+                "API_CALL",
+                "Flight delay API called successfully"
+            );
+            
             return ResponseEntity.ok(flight);
         } catch (MessagingException e) {
+            // Log failure at controller level
+            Map<String, Object> flightInfo = new HashMap<>();
+            flightInfo.put("flightId", flightId);
+            flightInfo.put("reason", reason);
+            flightInfo.put("newDepartureTime", newDepartureTime);
+            flightInfo.put("newArrivalTime", newArrivalTime);
+            
+            flightLogService.logFlightFailure(
+                "/flight/delay",
+                "ADMIN", // Will be replaced with actual admin ID when authentication is integrated
+                flightInfo,
+                "Error sending notification: " + e.getMessage()
+            );
+            
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                 .body(Map.of("error", "Error sending notification: " + e.getMessage()));
         } catch (RuntimeException e) {
+            // Log failure at controller level
+            Map<String, Object> flightInfo = new HashMap<>();
+            flightInfo.put("flightId", flightId);
+            flightInfo.put("reason", reason);
+            flightInfo.put("newDepartureTime", newDepartureTime);
+            flightInfo.put("newArrivalTime", newArrivalTime);
+            
+            flightLogService.logFlightFailure(
+                "/flight/delay",
+                "ADMIN", // Will be replaced with actual admin ID when authentication is integrated
+                flightInfo,
+                "Bad request: " + e.getMessage()
+            );
+            
             return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                 .body(Map.of("error", e.getMessage()));
         } catch (Exception e) {
+            // Log failure at controller level
+            Map<String, Object> flightInfo = new HashMap<>();
+            flightInfo.put("flightId", flightId);
+            flightInfo.put("reason", reason);
+            flightInfo.put("newDepartureTime", newDepartureTime);
+            flightInfo.put("newArrivalTime", newArrivalTime);
+            
+            flightLogService.logFlightFailure(
+                "/flight/delay",
+                "ADMIN", // Will be replaced with actual admin ID when authentication is integrated
+                flightInfo,
+                "Unexpected error: " + e.getMessage()
+            );
+            
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                 .body(Map.of("error", "Unexpected error: " + e.getMessage()));
         }
@@ -142,14 +239,65 @@ public class CRUDFlightController {
     public ResponseEntity<?> cancelFlight(@RequestParam Long flightId, @RequestParam String reason) {
         try {
             Flights flight = flightService.cancelFlight(flightId, reason);
+            
+            // Additional controller-level logging for API tracking
+            Map<String, Object> flightInfo = new HashMap<>();
+            flightInfo.put("flightId", flightId);
+            flightInfo.put("reason", reason);
+            flightInfo.put("apiEndpoint", "/flight/cancel");
+            
+            flightLogService.logFlightEvent(
+                "/flight/cancel",
+                "ADMIN", // Will be replaced with actual admin ID when authentication is integrated
+                flightInfo,
+                "API_CALL",
+                "Flight cancellation API called successfully"
+            );
+            
             return ResponseEntity.ok(flight);
         } catch (MessagingException e) {
+            // Log failure at controller level
+            Map<String, Object> flightInfo = new HashMap<>();
+            flightInfo.put("flightId", flightId);
+            flightInfo.put("reason", reason);
+            
+            flightLogService.logFlightFailure(
+                "/flight/cancel",
+                "ADMIN", // Will be replaced with actual admin ID when authentication is integrated
+                flightInfo,
+                "Error sending notification: " + e.getMessage()
+            );
+            
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                 .body(Map.of("error", "Error sending notification: " + e.getMessage()));
         } catch (RuntimeException e) {
+            // Log failure at controller level
+            Map<String, Object> flightInfo = new HashMap<>();
+            flightInfo.put("flightId", flightId);
+            flightInfo.put("reason", reason);
+            
+            flightLogService.logFlightFailure(
+                "/flight/cancel",
+                "ADMIN", // Will be replaced with actual admin ID when authentication is integrated
+                flightInfo,
+                "Bad request: " + e.getMessage()
+            );
+            
             return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                 .body(Map.of("error", e.getMessage()));  
         } catch (Exception e) {
+            // Log failure at controller level
+            Map<String, Object> flightInfo = new HashMap<>();
+            flightInfo.put("flightId", flightId);
+            flightInfo.put("reason", reason);
+            
+            flightLogService.logFlightFailure(
+                "/flight/cancel",
+                "ADMIN", // Will be replaced with actual admin ID when authentication is integrated
+                flightInfo,
+                "Unexpected error: " + e.getMessage()
+            );
+            
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                 .body(Map.of("error", "Unexpected error: " + e.getMessage()));
         }
@@ -163,14 +311,73 @@ public class CRUDFlightController {
             @RequestParam Timestamp newArrivalTime) {
         try {
             Flights flight = flightService.scheduleFlight(flightId, reason, newDepartureTime, newArrivalTime);
+            
+            // Additional controller-level logging for API tracking
+            Map<String, Object> flightInfo = new HashMap<>();
+            flightInfo.put("flightId", flightId);
+            flightInfo.put("reason", reason);
+            flightInfo.put("newDepartureTime", newDepartureTime);
+            flightInfo.put("newArrivalTime", newArrivalTime);
+            flightInfo.put("apiEndpoint", "/flight/schedule");
+            
+            flightLogService.logFlightEvent(
+                "/flight/schedule",
+                "ADMIN", // Will be replaced with actual admin ID when authentication is integrated
+                flightInfo,
+                "API_CALL",
+                "Flight schedule API called successfully"
+            );
+            
             return ResponseEntity.ok(flight);
         } catch (MessagingException e) {
+            // Log failure at controller level
+            Map<String, Object> flightInfo = new HashMap<>();
+            flightInfo.put("flightId", flightId);
+            flightInfo.put("reason", reason);
+            flightInfo.put("newDepartureTime", newDepartureTime);
+            flightInfo.put("newArrivalTime", newArrivalTime);
+            
+            flightLogService.logFlightFailure(
+                "/flight/schedule",
+                "ADMIN", // Will be replaced with actual admin ID when authentication is integrated
+                flightInfo,
+                "Error sending notification: " + e.getMessage()
+            );
+            
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                 .body(Map.of("error", "Error sending notification: " + e.getMessage()));
         } catch (RuntimeException e) {
+            // Log failure at controller level
+            Map<String, Object> flightInfo = new HashMap<>();
+            flightInfo.put("flightId", flightId);
+            flightInfo.put("reason", reason);
+            flightInfo.put("newDepartureTime", newDepartureTime);
+            flightInfo.put("newArrivalTime", newArrivalTime);
+            
+            flightLogService.logFlightFailure(
+                "/flight/schedule",
+                "ADMIN", // Will be replaced with actual admin ID when authentication is integrated
+                flightInfo,
+                "Bad request: " + e.getMessage()
+            );
+            
             return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                 .body(Map.of("error", e.getMessage()));
         } catch (Exception e) {
+            // Log failure at controller level
+            Map<String, Object> flightInfo = new HashMap<>();
+            flightInfo.put("flightId", flightId);
+            flightInfo.put("reason", reason);
+            flightInfo.put("newDepartureTime", newDepartureTime);
+            flightInfo.put("newArrivalTime", newArrivalTime);
+            
+            flightLogService.logFlightFailure(
+                "/flight/schedule",
+                "ADMIN", // Will be replaced with actual admin ID when authentication is integrated
+                flightInfo,
+                "Unexpected error: " + e.getMessage()
+            );
+            
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                 .body(Map.of("error", "Unexpected error: " + e.getMessage()));
         }

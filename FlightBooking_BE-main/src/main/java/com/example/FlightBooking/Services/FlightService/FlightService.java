@@ -13,6 +13,7 @@ import com.example.FlightBooking.DTOs.Request.RegulationDTO;
 import com.example.FlightBooking.Enum.FlightStatus;
 import com.example.FlightBooking.Models.*;
 import com.example.FlightBooking.Repositories.*;
+import com.example.FlightBooking.Services.LoggingService.FlightLogService;
 import com.example.FlightBooking.Services.PaymentService.PaymentService;
 import com.example.FlightBooking.Services.Planes.PlaneService;
 import com.example.FlightBooking.Services.RegulationService.RegulationService;
@@ -61,51 +62,95 @@ public class FlightService {
     private AirlinesRepository airlinesRepository;
     @Autowired
     private PlaneRepository planeRepository;
+    
+    @Autowired
+    private FlightLogService flightLogService;
 
     @Transactional
     public Flights createFlight(FlightDTORequest flightDTORequest) throws JsonProcessingException {
-        // Validate flight data
-        validateFlightData(flightDTORequest);
-        Flights flight = new Flights();
-        Map<String, Map<String, String>> seatStatuses = new HashMap<>();
-        // Using factory to manage seats in a flight
-        SeatCreator firstClassSeatCreator = new FirstClassSeatCreator();
-        SeatCreator businessClassSeatCreator = new BusinessClassSeatCreator();
-        SeatCreator economyClassSeatCreator = new EconomyClassSeatCreator();
+        try {
+            // Validate flight data
+            validateFlightData(flightDTORequest);
+            Flights flight = new Flights();
+            Map<String, Map<String, String>> seatStatuses = new HashMap<>();
+            // Using factory to manage seats in a flight
+            SeatCreator firstClassSeatCreator = new FirstClassSeatCreator();
+            SeatCreator businessClassSeatCreator = new BusinessClassSeatCreator();
+            SeatCreator economyClassSeatCreator = new EconomyClassSeatCreator();
 
-        seatStatuses.putAll(firstClassSeatCreator.generateSeats(flight));
-        seatStatuses.putAll(businessClassSeatCreator.generateSeats(flight));
-        seatStatuses.putAll(economyClassSeatCreator.generateSeats(flight));
+            seatStatuses.putAll(firstClassSeatCreator.generateSeats(flight));
+            seatStatuses.putAll(businessClassSeatCreator.generateSeats(flight));
+            seatStatuses.putAll(economyClassSeatCreator.generateSeats(flight));
 
-        String seatStatusesJson = objectMapper.writeValueAsString(seatStatuses);
+            String seatStatusesJson = objectMapper.writeValueAsString(seatStatuses);
 
-        flight.setFlightStatus(flightDTORequest.getFlightStatus());
-        flight.setDepartureDate(flightDTORequest.getDepartureDate());
-        flight.setArrivalDate(flightDTORequest.getArrivalDate());
-        flight.setDuration(flightDTORequest.getDuration());
-        flight.setDepartureAirportId(flightDTORequest.getDepartureAirportId());
-        flight.setArrivalAirportId(flightDTORequest.getArrivalAirportId());
-        flight.setPlaneId(flightDTORequest.getPlaneId());
+            flight.setFlightStatus(flightDTORequest.getFlightStatus());
+            flight.setDepartureDate(flightDTORequest.getDepartureDate());
+            flight.setArrivalDate(flightDTORequest.getArrivalDate());
+            flight.setDuration(flightDTORequest.getDuration());
+            flight.setDepartureAirportId(flightDTORequest.getDepartureAirportId());
+            flight.setArrivalAirportId(flightDTORequest.getArrivalAirportId());
+            flight.setPlaneId(flightDTORequest.getPlaneId());
 
-        // Get ticket prices from Regulation
-        Planes planes = planeRepository.findById(flightDTORequest.getPlaneId()).orElseThrow(() -> new IllegalArgumentException("Invalid plane ID"));
-        Airlines airlines = airlinesRepository.findByPlanes(planes).orElseThrow(() -> new IllegalArgumentException("Invalid plane"));
-        RegulationDTO regulation = regulationService.getRegulationByPlaneId(airlines.getId());
-        flight.setEconomyPrice(regulation.getEconomyPrice());
-        flight.setBusinessPrice(regulation.getBusinessPrice());
-        flight.setFirstClassPrice(regulation.getFirstClassPrice());
+            // Get ticket prices from Regulation
+            Planes planes = planeRepository.findById(flightDTORequest.getPlaneId()).orElseThrow(() -> new IllegalArgumentException("Invalid plane ID"));
+            Airlines airlines = airlinesRepository.findByPlanes(planes).orElseThrow(() -> new IllegalArgumentException("Invalid plane"));
+            RegulationDTO regulation = regulationService.getRegulationByPlaneId(airlines.getId());
+            flight.setEconomyPrice(regulation.getEconomyPrice());
+            flight.setBusinessPrice(regulation.getBusinessPrice());
+            flight.setFirstClassPrice(regulation.getFirstClassPrice());
+            flight.setSeatStatuses(seatStatusesJson);
 
-        flight.setSeatStatuses(seatStatusesJson);
+            // Check for minimum 1-hour gap between departure and arrival
+            if (flight.getArrivalDate().getTime() - flight.getDepartureDate().getTime() < 3600000) {
+                throw new IllegalArgumentException("Departure and arrival time must be at least 1 hour apart.");
+            }
 
-        // Check for minimum 1-hour gap between departure and arrival
-        if (flight.getArrivalDate().getTime() - flight.getDepartureDate().getTime() < 3600000) {
-            throw new IllegalArgumentException("Departure and arrival time must be at least 1 hour apart.");
+            // Check for 10-hour maintenance gap between flights
+            validateFlightIntervals(flightDTORequest);
+
+            Flights savedFlight = flightRepository.save(flight);
+            
+            // Log the flight creation event
+            Map<String, Object> flightInfo = new HashMap<>();
+            flightInfo.put("flightId", savedFlight.getId());
+            flightInfo.put("departureDate", savedFlight.getDepartureDate());
+            flightInfo.put("arrivalDate", savedFlight.getArrivalDate());
+            flightInfo.put("departureAirportId", savedFlight.getDepartureAirportId());
+            flightInfo.put("arrivalAirportId", savedFlight.getArrivalAirportId());
+            flightInfo.put("planeId", savedFlight.getPlaneId());
+            flightInfo.put("economyPrice", savedFlight.getEconomyPrice());
+            flightInfo.put("businessPrice", savedFlight.getBusinessPrice());
+            flightInfo.put("firstClassPrice", savedFlight.getFirstClassPrice());
+            
+            flightLogService.logFlightEvent(
+                "/api/flights/create", 
+                "SYSTEM", // Will be replaced with actual admin ID when authentication is integrated
+                flightInfo, 
+                "CREATE", 
+                "Flight created successfully"
+            );
+            
+            return savedFlight;
+        } catch (Exception e) {
+            // Log failure
+            Map<String, Object> flightInfo = new HashMap<>();
+            flightInfo.put("planeId", flightDTORequest.getPlaneId());
+            flightInfo.put("departureDate", flightDTORequest.getDepartureDate());
+            flightInfo.put("arrivalDate", flightDTORequest.getArrivalDate());
+            flightInfo.put("departureAirportId", flightDTORequest.getDepartureAirportId());
+            flightInfo.put("arrivalAirportId", flightDTORequest.getArrivalAirportId());
+            
+            flightLogService.logFlightFailure(
+                "/api/flights/create",
+                "SYSTEM", // Will be replaced with actual admin ID when authentication is integrated
+                flightInfo,
+                "Failed to create flight: " + e.getMessage()
+            );
+            
+            // Re-throw the exception for the controller to handle
+            throw e;
         }
-
-        // Check for 10-hour maintenance gap between flights
-        validateFlightIntervals(flightDTORequest);
-
-        return flightRepository.save(flight);
     }
 
     @org.springframework.transaction.annotation.Transactional
@@ -216,20 +261,63 @@ public class FlightService {
     }
     @Transactional
     public Flights delayFlight(Long flightId, String reason, Timestamp newDepartureTime, Timestamp newArrivalTime) throws MessagingException {
-        Flights flight = flightRepository.findById(flightId)
-                .orElseThrow(() -> new RuntimeException("Flight not found"));
+        try {
+            Flights flight = flightRepository.findById(flightId)
+                    .orElseThrow(() -> new RuntimeException("Flight not found"));
 
-        flight.setFlightStatus(FlightStatus.DELAYED.name());
-        flight.setDepartureDate(newDepartureTime);
-        flight.setArrivalDate(newArrivalTime);
-        flightRepository.save(flight);
+            // Store original departure and arrival times for logging
+            Timestamp originalDeparture = flight.getDepartureDate();
+            Timestamp originalArrival = flight.getArrivalDate();
+            
+            // Update flight status and times
+            flight.setFlightStatus(FlightStatus.DELAYED.name());
+            flight.setDepartureDate(newDepartureTime);
+            flight.setArrivalDate(newArrivalTime);
+            flightRepository.save(flight);
 
-        List<Booking> bookings = bookingRepository.findAllByFlightId(flightId);
-        for (Booking booking : bookings) {
-            flightDelayEmailSender.sendEmail(booking.getBookerEmail(), reason);
+            // Send email to affected bookings
+            List<Booking> bookings = bookingRepository.findAllByFlightId(flightId);
+            for (Booking booking : bookings) {
+                flightDelayEmailSender.sendEmail(booking.getBookerEmail(), reason);
+            }
+            
+            // Log the flight delay event
+            Map<String, Object> flightInfo = new HashMap<>();
+            flightInfo.put("flightId", flightId);
+            flightInfo.put("reason", reason);
+            flightInfo.put("originalDepartureTime", originalDeparture);
+            flightInfo.put("newDepartureTime", newDepartureTime);
+            flightInfo.put("originalArrivalTime", originalArrival);
+            flightInfo.put("newArrivalTime", newArrivalTime);
+            flightInfo.put("affectedBookings", bookings.size());
+            
+            flightLogService.logFlightEvent(
+                "/api/flights/delay", 
+                "SYSTEM",  // Will be replaced with actual admin ID when authentication is integrated
+                flightInfo, 
+                "DELAY", 
+                "Flight delayed: " + reason
+            );
+
+            return flight;
+        } catch (Exception e) {
+            // Log failure
+            Map<String, Object> flightInfo = new HashMap<>();
+            flightInfo.put("flightId", flightId);
+            flightInfo.put("reason", reason);
+            flightInfo.put("newDepartureTime", newDepartureTime);
+            flightInfo.put("newArrivalTime", newArrivalTime);
+            
+            flightLogService.logFlightFailure(
+                "/api/flights/delay",
+                "SYSTEM", // Will be replaced with actual admin ID when authentication is integrated
+                flightInfo,
+                "Failed to delay flight: " + e.getMessage()
+            );
+            
+            // Re-throw the exception for the controller to handle
+            throw e;
         }
-
-        return flight;
     }
 
     @Transactional
@@ -237,13 +325,37 @@ public class FlightService {
         Flights flight = flightRepository.findById(flightId)
                 .orElseThrow(() -> new RuntimeException("Flight not found"));
 
+        // Store original flight data for logging
+        Timestamp originalDeparture = flight.getDepartureDate();
+        Timestamp originalArrival = flight.getArrivalDate();
+        String originalStatus = flight.getFlightStatus();
+        
+        // Update flight status
         flight.setFlightStatus(FlightStatus.CANCELED.name());
         flightRepository.save(flight);
 
+        // Send email to affected bookings
         List<Booking> bookings = bookingRepository.findAllByFlightId(flightId);
         for (Booking booking : bookings) {
             flightCancelEmailSender.sendEmail(booking.getBookerEmail(), reason);
         }
+        
+        // Log the flight cancellation event
+        Map<String, Object> flightInfo = new HashMap<>();
+        flightInfo.put("flightId", flightId);
+        flightInfo.put("reason", reason);
+        flightInfo.put("originalStatus", originalStatus);
+        flightInfo.put("departureTime", originalDeparture);
+        flightInfo.put("arrivalTime", originalArrival);
+        flightInfo.put("affectedBookings", bookings.size());
+        
+        flightLogService.logFlightEvent(
+            "/api/flights/cancel", 
+            "SYSTEM",  // Will be replaced with actual admin ID when authentication is integrated
+            flightInfo, 
+            "CANCEL", 
+            "Flight canceled: " + reason
+        );
 
         return flight;
     }
@@ -251,14 +363,43 @@ public class FlightService {
     public Flights scheduleFlight(Long flightId, String reason, Timestamp newDepartureTime, Timestamp newArrivalTime) throws MessagingException {
         Flights flight = flightRepository.findById(flightId)
                 .orElseThrow(() -> new RuntimeException("Flight not found"));
+        
+        // Store original departure and arrival times for logging
+        Timestamp originalDeparture = flight.getDepartureDate();
+        Timestamp originalArrival = flight.getArrivalDate();
+        String originalStatus = flight.getFlightStatus();
+        
+        // Update flight status and times
         flight.setFlightStatus(FlightStatus.SCHEDULED.name());
         flight.setDepartureDate(newDepartureTime);
         flight.setArrivalDate(newArrivalTime);
         flightRepository.save(flight);
+        
+        // Send email to affected bookings
         List<Booking> bookings = bookingRepository.findAllByFlightId(flightId);
         for (Booking booking : bookings) {
             flightScheduleEmailSender.sendEmail(booking.getBookerEmail(), reason);
         }
+        
+        // Log the flight schedule change event
+        Map<String, Object> flightInfo = new HashMap<>();
+        flightInfo.put("flightId", flightId);
+        flightInfo.put("reason", reason);
+        flightInfo.put("originalStatus", originalStatus);
+        flightInfo.put("originalDepartureTime", originalDeparture);
+        flightInfo.put("newDepartureTime", newDepartureTime);
+        flightInfo.put("originalArrivalTime", originalArrival);
+        flightInfo.put("newArrivalTime", newArrivalTime);
+        flightInfo.put("affectedBookings", bookings.size());
+        
+        flightLogService.logFlightEvent(
+            "/api/flights/schedule", 
+            "SYSTEM",  // Will be replaced with actual admin ID when authentication is integrated
+            flightInfo, 
+            "SCHEDULE_CHANGE", 
+            "Flight schedule changed: " + reason
+        );
+        
         return flight;
     }
     @org.springframework.transaction.annotation.Transactional
